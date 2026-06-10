@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Вход{% endblock %}
+{% block content %}
+<h1>Вход</h1>
+<form method="post" class="col-md-4">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="mb-2"><input class="form-control" name="login" placeholder="Логин"></div>
+  <div class="mb-2"><input class="form-control" type="password" name="password" placeholder="Пароль"></div>
+  <div class="form-check mb-2">
+    <input class="form-check-input" type="checkbox" name="remember" id="remember">
+    <label class="form-check-label" for="remember">Запомнить меня</label>
+  </div>
+  <button class="btn btn-primary" type="submit">Войти</button>
+</form>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>{% if book %}Редактирование{% else %}Добавление{% endif %} книги</h1>
+
+<form method="post" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  
+  <div class="mb-3">
+    <label class="form-label">Название *</label>
+    <input class="form-control" name="title" required value="{{ book.title if book else '' }}">
+  </div>
+  
+  <div class="mb-3">
+    <label class="form-label">Описание (поддерживает Markdown) *</label>
+    <textarea class="form-control" name="description" rows="10" required>{{ book.description if book else '' }}</textarea>
+    <small class="text-muted">
+      Поддерживается форматирование Markdown: 
+      **жирный**, *курсив*, # заголовки, - списки, и т.д.
+    </small>
+  </div>
+  
+  <div class="mb-3">
+    <label class="form-label">Год *</label>
+    <input class="form-control" name="year" type="number" required value="{{ book.year if book else '' }}">
+  </div>
+  
+  <div class="mb-3">
+    <label class="form-label">Издательство *</label>
+    <input class="form-control" name="publisher" required value="{{ book.publisher if book else '' }}">
+  </div>
+  
+  <div class="mb-3">
+    <label class="form-label">Автор *</label>
+    <input class="form-control" name="author" required value="{{ book.author if book else '' }}">
+  </div>
+  
+  <div class="mb-3">
+    <label class="form-label">Количество страниц *</label>
+    <input class="form-control" name="pages" type="number" required value="{{ book.pages if book else '' }}">
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Жанры (можно выбрать несколько)</label>
+    <select class="form-select" name="genres" multiple size="6">
+      {% for genre in genres %}
+        <option value="{{ genre.id }}" {% if book and genre in book.genres %}selected{% endif %}>{{ genre.name }}</option>
+      {% endfor %}
+    </select>
+    <small class="text-muted">Зажмите Ctrl (Cmd) для выбора нескольких жанров</small>
+  </div>
+
+  {% if not book %}
+    <div class="mb-3">
+      <label class="form-label">Обложка</label>
+      <input class="form-control" type="file" name="cover" accept="image/*">
+    </div>
+  {% endif %}
+
+  <button class="btn btn-primary" type="submit">Сохранить</button>
+  <a href="{{ url_for('index') }}" class="btn btn-secondary">Отмена</a>
+</form>
+{% endblock %}

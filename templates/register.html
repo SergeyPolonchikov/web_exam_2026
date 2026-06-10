@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Регистрация{% endblock %}
+{% block content %}
+<h1>Регистрация</h1>
+<form method="post" class="col-md-5">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="mb-2"><input class="form-control" name="login" placeholder="Логин"></div>
+  <div class="mb-2"><input class="form-control" type="password" name="password" placeholder="Пароль"></div>
+  <div class="mb-2"><input class="form-control" name="last_name" placeholder="Фамилия"></div>
+  <div class="mb-2"><input class="form-control" name="first_name" placeholder="Имя"></div>
+  <div class="mb-2"><input class="form-control" name="middle_name" placeholder="Отчество"></div>
+  <button class="btn btn-success" type="submit">Зарегистрироваться</button>
+</form>
+{% endblock %}

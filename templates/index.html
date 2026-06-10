@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% block title %}Главная{% endblock %}
+{% block content %}
+<h1>Книги</h1>
+
+<form method="get" class="row g-2 mb-4">
+  <div class="col-md-3">
+    <input class="form-control" name="title" placeholder="Название" value="{{ filters.get('title','') }}">
+  </div>
+  <div class="col-md-3">
+    <input class="form-control" name="author" placeholder="Автор" value="{{ filters.get('author','') }}">
+  </div>
+  <div class="col-md-2">
+    <input class="form-control" name="volume_from" placeholder="Объём от (страниц)" value="{{ filters.get('volume_from','') }}">
+  </div>
+  <div class="col-md-2">
+    <input class="form-control" name="volume_to" placeholder="Объём до (страниц)" value="{{ filters.get('volume_to','') }}">
+  </div>
+  <div class="col-md-2">
+    <button class="btn btn-success w-100" type="submit">Найти</button>
+    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary w-100 mt-1">Сбросить</a>
+  </div>
+
+  <div class="col-md-4">
+    <label class="form-label">Жанры</label>
+    <select class="form-select" name="genre" multiple size="4">
+      {% for genre in genres %}
+        <option value="{{ genre.id }}" {% if genre.id|string in filters.getlist('genre') %}selected{% endif %}>{{ genre.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="col-md-4">
+    <label class="form-label">Годы</label>
+    <select class="form-select" name="year" multiple size="4">
+      {% for year in current_years %}
+        <option value="{{ year }}" {% if year|string in filters.getlist('year') %}selected{% endif %}>{{ year }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</form>
+
+<div class="row">
+  {% for book in pagination.items %}
+    <div class="col-md-12 mb-3">
+      <div class="card">
+        <div class="card-body">
+          <div class="row">
+            {% if book.cover %}
+            <div class="col-md-2">
+              <img src="{{ url_for('uploaded_file', filename=book.cover.filename) }}" alt="{{ book.title }}" class="img-fluid" style="max-height: 150px; object-fit: cover;">
+            </div>
+            <div class="col-md-10">
+            {% else %}
+            <div class="col-md-12">
+            {% endif %}
+              <h5 class="card-title">
+                <a href="{{ url_for('book_detail', book_id=book.id) }}">{{ book.title }}</a>
+              </h5>
+              <p class="card-text">
+                <strong>Автор:</strong> {{ book.author }}<br>
+                <strong>Год:</strong> {{ book.year }} | 
+                <strong>Страниц:</strong> {{ book.pages }}<br>
+                <strong>Жанры:</strong> {{ book.genres|map(attribute='name')|join(', ') }}<br>
+                <strong>Средняя оценка:</strong> 
+                {% if book.avg_rating > 0 %}
+                  ⭐ {{ book.avg_rating }}/5
+                {% else %}
+                  Нет оценок
+                {% endif %} | 
+                <strong>Рецензий:</strong> {{ book.reviews|length }}
+              </p>
+              
+              <div>
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('book_detail', book_id=book.id) }}">Просмотр</a>
+                
+                {% if current_user.is_authenticated and current_user.role.name in ['Администратор','Модератор'] %}
+                  <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('book_edit', book_id=book.id) }}">Редактировать</a>
+                {% endif %}
+                
+                {% if current_user.is_authenticated and current_user.role.name == 'Администратор' %}
+                  <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ book.id }}">
+                    Удалить
+                  </button>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Модальное окно для удаления -->
+    {% if current_user.is_authenticated and current_user.role.name == 'Администратор' %}
+    <div class="modal fade" id="deleteModal{{ book.id }}" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Удаление книги</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p>Вы уверены, что хотите удалить книгу <strong>"{{ book.title }}"</strong>?</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Нет</button>
+            <form method="post" action="{{ url_for('book_delete', book_id=book.id) }}" class="d-inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-danger">Да</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  {% endfor %}
+</div>
+
+<!-- Пагинация -->
+{% if pagination.pages > 1 %}
+<nav aria-label="Page navigation">
+  <ul class="pagination justify-content-center">
+    {% for p in pagination.iter_pages() %}
+      {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+          {% set new_args = filters.to_dict(flat=False) %}
+          <a class="page-link" href="{{ url_for('index', page=p, **new_args) }}">{{ p }}</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">...</span></li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+
+{% if current_user.is_authenticated and current_user.role.name == 'Администратор' %}
+  <div class="mt-3">
+    <a class="btn btn-primary" href="{{ url_for('book_add') }}">+ Добавить книгу</a>
+  </div>
+{% endif %}
+{% endblock %}

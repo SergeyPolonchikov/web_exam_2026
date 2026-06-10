@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Новая рецензия: {{ book.title }}</h1>
+
+<div class="row">
+  <div class="col-md-8">
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      
+      <div class="mb-3">
+        <label class="form-label">Оценка</label>
+        <select class="form-select" name="rating">
+          <option value="5" selected>5 — отлично</option>
+          <option value="4">4 — хорошо</option>
+          <option value="3">3 — удовлетворительно</option>
+          <option value="2">2 — неудовлетворительно</option>
+          <option value="1">1 — плохо</option>
+          <option value="0">0 — ужасно</option>
+        </select>
+      </div>
+      
+      <div class="mb-3">
+        <label class="form-label">Текст рецензии (поддерживает Markdown)</label>
+        <textarea class="form-control" name="text" rows="10" required></textarea>
+        <small class="text-muted">
+          Поддерживается форматирование Markdown: 
+          **жирный**, *курсив*, # заголовки, - списки, и т.д.
+        </small>
+      </div>
+      
+      <button class="btn btn-primary" type="submit">Сохранить</button>
+      <a href="{{ url_for('book_detail', book_id=book.id) }}" class="btn btn-secondary">Отмена</a>
+    </form>
+  </div>
+</div>
+{% endblock %}
