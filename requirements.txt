@@ -5,3 +5,4 @@ Flask-WTF==1.2.1
 Werkzeug==3.0.3
 markdown==3.6
 bleach==6.1.0
+gunicorn==21.2.0
