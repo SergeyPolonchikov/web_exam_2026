@@ -11,6 +11,9 @@
   <a class="navbar-brand" href="{{ url_for('index') }}">📚 Электронная библиотека</a>
   <div class="ms-auto">
     {% if current_user.is_authenticated %}
+      {% if current_user.role.name == 'Администратор' %}
+        <a class="btn btn-outline-danger btn-sm me-2" href="{{ url_for('admin_users') }}">👑 Админ-панель</a>
+      {% endif %}
       <span class="me-2">👤 {{ current_user.full_name() }} ({{ current_user.role.name }})</span>
       <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('logout') }}">🚪 Выйти</a>
     {% else %}

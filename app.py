@@ -426,11 +426,10 @@ def review_add(book_id):
     return render_template("review_form.html", book=book)
 
 
-# Initialize database with roles and sample data
 with app.app_context():
     db.create_all()
     
-    # Create roles if they don't exist
+    # Создание ролей (если их нет)
     roles_data = [
         ("Пользователь", "Обычный пользователь, может оставлять рецензии"),
         ("Модератор", "Может редактировать книги и модерировать рецензии"),
@@ -444,7 +443,7 @@ with app.app_context():
     
     db.session.commit()
     
-    # Create some sample genres if none exist
+    # Создание жанров (если их нет)
     if Genre.query.count() == 0:
         sample_genres = ["Роман", "Фантастика", "Детектив", "Поэзия", "Научная литература", "История", "Приключения"]
         for genre_name in sample_genres:
@@ -453,7 +452,7 @@ with app.app_context():
     
     db.session.commit()
     
-    # Create admin user if not exists
+    # Создание администратора (если его нет)
     admin_role = Role.query.filter_by(name="Администратор").first()
     if admin_role:
         admin_user = User.query.filter_by(login="admin").first()
@@ -474,7 +473,6 @@ with app.app_context():
             print(f"🔑 Пароль: admin123")
             print("=" * 50)
         else:
-            # Verify admin password works
             if not admin_user.check_password("admin123"):
                 print("⚠️ Сброс пароля администратора...")
                 admin_user.set_password("admin123")
@@ -483,11 +481,109 @@ with app.app_context():
             else:
                 print("✅ Администратор уже существует, пароль работает корректно")
     
+    moderator_role = Role.query.filter_by(name="Модератор").first()
+    if moderator_role:
+        moderator_user = User.query.filter_by(login="moderator").first()
+        if not moderator_user:
+            moderator = User(
+                login="moderator",
+                last_name="Модераторов",
+                first_name="Модератор",
+                middle_name="Тестович",
+                role=moderator_role
+            )
+            moderator.set_password("moderator123")
+            db.session.add(moderator)
+            db.session.commit()
+            print("✅ Модератор успешно создан!")
+            print(f"📝 Логин: moderator")
+            print(f"🔑 Пароль: moderator123")
+        else:
+            if not moderator_user.check_password("moderator123"):
+                print("⚠️ Сброс пароля модератора...")
+                moderator_user.set_password("moderator123")
+                db.session.commit()
+                print("✅ Пароль модератора сброшен на 'moderator123'")
+    
+    user_role = Role.query.filter_by(name="Пользователь").first()
+    if user_role:
+        regular_user = User.query.filter_by(login="user").first()
+        if not regular_user:
+            user = User(
+                login="user",
+                last_name="Пользователей",
+                first_name="Обычный",
+                middle_name="Петрович",
+                role=user_role
+            )
+            user.set_password("user123")
+            db.session.add(user)
+            db.session.commit()
+            print("✅ Обычный пользователь успешно создан!")
+            print(f"📝 Логин: user")
+            print(f"🔑 Пароль: user123")
+        else:
+            if not regular_user.check_password("user123"):
+                regular_user.set_password("user123")
+                db.session.commit()
+                print("✅ Пароль пользователя сброшен на 'user123'")
+    
     print("\n🏁 Приложение готово к работе!")
-    print(f"📁 База данных: {DB_PATH}")
+    print(f"📁 База данных: {DB_PATH if 'DB_PATH' in dir() else 'PostgreSQL'}")
     print(f"📁 Папка загрузок: {UPLOAD_FOLDER}")
     print("=" * 50)
 
+@app.route("/admin/users")
+@role_required("Администратор")
+def admin_users():
+    users = User.query.all()
+    roles = Role.query.all()
+    return render_template("admin_users.html", users=users, roles=roles)
+
+
+@app.route("/admin/user/<int:user_id>/change_role", methods=["POST"])
+@role_required("Администратор")
+def change_user_role(user_id):
+    user = User.query.get_or_404(user_id)
+    new_role_id = request.form.get("role_id")
+    
+    # Защита: нельзя изменить роль последнего администратора
+    if user.role.name == "Администратор":
+        admin_count = User.query.filter_by(role_id=user.role_id).count()
+        if admin_count <= 1:
+            flash("Нельзя изменить роль единственного администратора!", "danger")
+            return redirect(url_for("admin_users"))
+    
+    role = Role.query.get(new_role_id)
+    if role:
+        user.role = role
+        db.session.commit()
+        flash(f"Роль пользователя {user.full_name()} изменена на {role.name}", "success")
+    
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/user/<int:user_id>/delete", methods=["POST"])
+@role_required("Администратор")
+def admin_delete_user(user_id):
+    user = User.query.get_or_404(user_id)
+    
+    # Защита: нельзя удалить самого себя
+    if user.id == current_user.id:
+        flash("Нельзя удалить свою учётную запись", "danger")
+        return redirect(url_for("admin_users"))
+    
+    # Защита: нельзя удалить последнего администратора
+    if user.role.name == "Администратор":
+        admin_count = User.query.filter_by(role_id=user.role_id).count()
+        if admin_count <= 1:
+            flash("Нельзя удалить единственного администратора!", "danger")
+            return redirect(url_for("admin_users"))
+    
+    db.session.delete(user)
+    db.session.commit()
+    flash(f"Пользователь {user.full_name()} удалён", "success")
+    return redirect(url_for("admin_users"))
 
 if __name__ == "__main__":
     app.run(debug=True)
