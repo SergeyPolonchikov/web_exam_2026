@@ -2,7 +2,7 @@
 {% block content %}
 <h1>{% if book %}Редактирование{% else %}Добавление{% endif %} книги</h1>
 
-<form method="post" enctype="multipart/form-data">
+<form method="post" enctype="multipart/form-data" id="bookForm">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   
   <div class="mb-3">
@@ -13,10 +13,7 @@
   <div class="mb-3">
     <label class="form-label">Описание (поддерживает Markdown) *</label>
     <textarea class="form-control" name="description" rows="10" required>{{ book.description if book else '' }}</textarea>
-    <small class="text-muted">
-      Поддерживается форматирование Markdown: 
-      **жирный**, *курсив*, # заголовки, - списки, и т.д.
-    </small>
+    <small class="text-muted">Поддерживается форматирование Markdown</small>
   </div>
   
   <div class="mb-3">
@@ -49,12 +46,18 @@
     <small class="text-muted">Зажмите Ctrl (Cmd) для выбора нескольких жанров</small>
   </div>
 
-  {% if not book %}
-    <div class="mb-3">
-      <label class="form-label">Обложка</label>
-      <input class="form-control" type="file" name="cover" accept="image/*">
-    </div>
-  {% endif %}
+  <!-- ОБЛОЖКА - теперь доступна и при добавлении, и при редактировании -->
+  <div class="mb-3">
+    <label class="form-label">Обложка</label>
+    {% if book and book.cover %}
+      <div class="mb-2">
+        <img src="{{ url_for('uploaded_file', filename=book.cover.filename) }}" alt="Текущая обложка" style="max-height: 100px;">
+        <p class="text-muted small mt-1">Текущая обложка</p>
+      </div>
+    {% endif %}
+    <input class="form-control" type="file" name="cover" accept="image/*">
+    <small class="text-muted">{% if book %}Оставьте пустым, чтобы сохранить текущую обложку.{% else %}Загрузите обложку для книги.{% endif %}</small>
+  </div>
 
   <button class="btn btn-primary" type="submit">Сохранить</button>
   <a href="{{ url_for('index') }}" class="btn btn-secondary">Отмена</a>

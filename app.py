@@ -342,6 +342,8 @@ def book_edit(book_id):
 
     if request.method == "POST":
         try:
+            old_title = book.title
+            
             book.title = request.form["title"]
             book.description = bleach.clean(request.form["description"])
             book.year = int(request.form["year"])
@@ -353,12 +355,29 @@ def book_edit(book_id):
                 for gid in request.form.getlist("genres")
                 if Genre.query.get(int(gid))
             ]
+            
+            # Обработка новой обложки
+            if "cover" in request.files and request.files["cover"].filename:
+                # Удаляем старую обложку из файловой системы, если она есть
+                if book.cover:
+                    old_cover_path = os.path.join(app.config["UPLOAD_FOLDER"], book.cover.filename)
+                    if os.path.exists(old_cover_path):
+                        os.remove(old_cover_path)
+                    # Удаляем запись о старой обложке из БД
+                    db.session.delete(book.cover)
+                    db.session.flush()
+                
+                # Сохраняем новую обложку
+                save_cover(request.files["cover"], book)
+            
             db.session.commit()
-            flash("Книга успешно обновлена!")
+            flash(f"Книга «{book.title}» успешно обновлена!", "success")
             return redirect(url_for("book_detail", book_id=book.id))
-        except Exception:
+            
+        except Exception as e:
             db.session.rollback()
-            flash("При сохранении данных возникла ошибка. Проверьте корректность введённых данных.")
+            print(f"Ошибка при редактировании: {e}")
+            flash("При сохранении данных возникла ошибка. Проверьте корректность введённых данных.", "danger")
             return render_template("book_form.html", book=book, genres=genres)
 
     return render_template("book_form.html", book=book, genres=genres)
