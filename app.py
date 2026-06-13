@@ -12,6 +12,7 @@ from werkzeug.utils import secure_filename
 import markdown
 import bleach
 
+PROTECTED_ADMIN_LOGIN = "admin"
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 DB_PATH = os.environ.get('DATABASE_PATH', os.path.join(BASE_DIR, "library.db"))
@@ -545,20 +546,36 @@ def admin_users():
 @role_required("Администратор")
 def change_user_role(user_id):
     user = User.query.get_or_404(user_id)
+    
+    # Защита: нельзя менять роль защищённого администратора
+    if user.login == PROTECTED_ADMIN_LOGIN:
+        flash("Нельзя изменить роль системного администратора!", "danger")
+        return redirect(url_for("admin_users"))
+    
     new_role_id = request.form.get("role_id")
     
-    # Защита: нельзя изменить роль последнего администратора
+    # Защита: нельзя изменить роль последнего администратора (кроме защищённого)
     if user.role.name == "Администратор":
-        admin_count = User.query.filter_by(role_id=user.role_id).count()
+        # Считаем только НЕ защищённых администраторов
+        admin_count = User.query.filter(
+            User.role.has(name="Администратор"),
+            User.login != PROTECTED_ADMIN_LOGIN
+        ).count()
         if admin_count <= 1:
-            flash("Нельзя изменить роль единственного администратора!", "danger")
+            flash("Нельзя изменить роль единственного администратора (кроме системного)!", "danger")
             return redirect(url_for("admin_users"))
     
     role = Role.query.get(new_role_id)
     if role:
+        old_role = user.role.name
         user.role = role
         db.session.commit()
-        flash(f"Роль пользователя {user.full_name()} изменена на {role.name}", "success")
+        
+        # Особое сообщение при назначении администратора
+        if role.name == "Администратор":
+            flash(f"⚠️ Пользователь {user.full_name()} назначен администратором! Будьте осторожны.", "warning")
+        else:
+            flash(f"Роль пользователя {user.full_name()} изменена с {old_role} на {role.name}", "success")
     
     return redirect(url_for("admin_users"))
 
@@ -568,22 +585,112 @@ def change_user_role(user_id):
 def admin_delete_user(user_id):
     user = User.query.get_or_404(user_id)
     
-    # Защита: нельзя удалить самого себя
-    if user.id == current_user.id:
-        flash("Нельзя удалить свою учётную запись", "danger")
+    # Защита: нельзя удалить защищённого администратора
+    if user.login == PROTECTED_ADMIN_LOGIN:
+        flash("❌ Нельзя удалить системного администратора!", "danger")
         return redirect(url_for("admin_users"))
     
-    # Защита: нельзя удалить последнего администратора
+    # Защита: нельзя удалить самого себя
+    if user.id == current_user.id:
+        flash("❌ Нельзя удалить свою учётную запись", "danger")
+        return redirect(url_for("admin_users"))
+    
+    # Защита: нельзя удалить последнего администратора (кроме защищённого)
     if user.role.name == "Администратор":
-        admin_count = User.query.filter_by(role_id=user.role_id).count()
+        admin_count = User.query.filter(
+            User.role.has(name="Администратор"),
+            User.login != PROTECTED_ADMIN_LOGIN
+        ).count()
         if admin_count <= 1:
-            flash("Нельзя удалить единственного администратора!", "danger")
+            flash("❌ Нельзя удалить единственного администратора (кроме системного)!", "danger")
             return redirect(url_for("admin_users"))
     
+    # Сохраняем имя для сообщения
+    user_full_name = user.full_name()
+    user_login = user.login
+    
+    # Удаляем пользователя
     db.session.delete(user)
     db.session.commit()
-    flash(f"Пользователь {user.full_name()} удалён", "success")
+    
+    flash(f"✅ Пользователь {user_full_name} (логин: {user_login}) удалён", "success")
     return redirect(url_for("admin_users"))
+
+with app.app_context():
+    db.create_all()
+    
+    # Создание ролей
+    roles_data = [
+        ("Пользователь", "Обычный пользователь, может оставлять рецензии"),
+        ("Модератор", "Может редактировать книги и модерировать рецензии"),
+        ("Администратор", "Полный доступ к системе")
+    ]
+    
+    for role_name, role_desc in roles_data:
+        if not Role.query.filter_by(name=role_name).first():
+            role = Role(name=role_name, description=role_desc)
+            db.session.add(role)
+    
+    db.session.commit()
+    
+    # Создание жанров
+    if Genre.query.count() == 0:
+        sample_genres = ["Роман", "Фантастика", "Детектив", "Поэзия", "Научная литература", "История", "Приключения"]
+        for genre_name in sample_genres:
+            genre = Genre(name=genre_name)
+            db.session.add(genre)
+    
+    db.session.commit()
+    
+    admin_role = Role.query.filter_by(name="Администратор").first()
+    if admin_role:
+        admin_user = User.query.filter_by(login="admin").first()
+        if not admin_user:
+            admin = User(
+                login="admin",
+                last_name="Администратор",
+                first_name="Системный",
+                middle_name="",
+                role=admin_role
+            )
+            admin.set_password("admin123")
+            db.session.add(admin)
+            db.session.commit()
+        else:
+            # Проверка пароля
+            if not admin_user.check_password("admin123"):
+                admin_user.set_password("admin123")
+                db.session.commit()
+    
+    moderator_role = Role.query.filter_by(name="Модератор").first()
+    if moderator_role:
+        moderator_user = User.query.filter_by(login="moderator").first()
+        if not moderator_user:
+            moderator = User(
+                login="moderator",
+                last_name="Модераторов",
+                first_name="Модератор",
+                middle_name="Тестович",
+                role=moderator_role
+            )
+            moderator.set_password("moderator123")
+            db.session.add(moderator)
+            db.session.commit()
+    
+    user_role = Role.query.filter_by(name="Пользователь").first()
+    if user_role:
+        regular_user = User.query.filter_by(login="user").first()
+        if not regular_user:
+            user = User(
+                login="user",
+                last_name="Пользователей",
+                first_name="Обычный",
+                middle_name="Петрович",
+                role=user_role
+            )
+            user.set_password("user123")
+            db.session.add(user)
+            db.session.commit()
 
 if __name__ == "__main__":
     app.run(debug=True)
