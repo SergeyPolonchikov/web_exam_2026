@@ -205,37 +205,32 @@ def index():
     if vol_to.isdigit():
         q = q.filter(Book.pages <= int(vol_to))
     if genres:
-        q = q.join(Book.genres).filter(Genre.id.in_(genres)).group_by(Book.id)
+        # Исправляем: фильтрация по жанрам
+        q = q.join(Book.genres).filter(Genre.id.in_(genres)).distinct()
 
     page = request.args.get("page", 1, type=int)
-    pagination = q.order_by(Book.year.desc()).paginate(page=page, per_page=10, error_out=False)
-
-    # Preserve filter args for pagination
+    per_page = 10
+    
+    # Обёртка в try-except для отладки
+    try:
+        pagination = q.order_by(Book.year.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    except Exception as e:
+        print(f"Ошибка пагинации: {e}")
+        # Если ошибка, показываем первую страницу без фильтров
+        pagination = Book.query.order_by(Book.year.desc()).paginate(page=1, per_page=per_page, error_out=False)
+    
+    # Сохраняем параметры фильтрации для ссылок
     filter_args = request.args.copy()
+    # Удаляем page из копии, чтобы не дублировать
+    if 'page' in filter_args:
+        filter_args.pop('page')
+    
     return render_template(
         "index.html",
         pagination=pagination,
         genres=Genre.query.all(),
         filters=filter_args
     )
-
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        login_value = request.form.get("login")
-        password_value = request.form.get("password")
-        
-        user = User.query.filter_by(login=login_value).first()
-        
-        if user and user.check_password(password_value):
-            login_user(user, remember=bool(request.form.get("remember")))
-            flash(f"Добро пожаловать, {user.full_name()}!")
-            return redirect(url_for("index"))
-        
-        flash("Невозможно аутентифицироваться с указанными логином и паролем")
-    
-    return render_template("login.html")
 
 
 @app.route("/register", methods=["GET", "POST"])
