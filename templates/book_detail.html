@@ -1,109 +1,151 @@
 {% extends 'base.html' %}
+
 {% block title %}{{ book.title }}{% endblock %}
+
 {% block content %}
 <div class="row">
   <div class="col-md-4">
     {% if book.cover %}
-      <img src="{{ url_for('uploaded_file', filename=book.cover.filename) }}" alt="Обложка" class="img-fluid rounded">
+      <img src="{{ url_for('uploaded_file', filename=book.cover.filename) }}" alt="Обложка" class="img-fluid rounded shadow">
     {% else %}
-      <div class="alert alert-secondary text-center">Нет обложки</div>
+      <div class="alert alert-secondary text-center">
+        📖 Нет обложки
+      </div>
     {% endif %}
   </div>
   
   <div class="col-md-8">
-    <h1>{{ book.title }}</h1>
+    <h1 class="mb-3">{{ book.title }}</h1>
+    
     <div class="mb-3">
-      <span class="badge bg-primary">{{ book.author }}</span>
-      <span class="badge bg-secondary">{{ book.year }}</span>
-      <span class="badge bg-info">{{ book.publisher }}</span>
-      <span class="badge bg-warning">{{ book.pages }} страниц</span>
+      <span class="badge bg-primary fs-6 me-2">✍️ {{ book.author }}</span>
+      <span class="badge bg-secondary fs-6 me-2">📅 {{ book.year }}</span>
+      <span class="badge bg-info fs-6 me-2">🏢 {{ book.publisher }}</span>
+      <span class="badge bg-warning text-dark fs-6">📄 {{ book.pages }} стр.</span>
     </div>
     
-    <h5>Описание:</h5>
-    <div class="card p-3 mb-3">
-      {{ clean_md(book.description)|safe }}
-    </div>
-    
-    <h5>Жанры:</h5>
-    <div>
+    <div class="mb-3">
+      <strong>🏷️ Жанры:</strong>
       {% for genre in book.genres %}
         <span class="badge bg-success">{{ genre.name }}</span>
       {% endfor %}
+    </div>
+    
+    <div class="mb-3">
+      <strong>⭐ Средняя оценка:</strong>
+      {% if book.avg_rating > 0 %}
+        <span class="fs-5">
+          {% for i in range(book.avg_rating|round(0,'floor')|int) %}⭐{% endfor %}
+          {{ book.avg_rating }}/5
+        </span>
+      {% else %}
+        <span class="text-muted">Нет оценок</span>
+      {% endif %}
+    </div>
+    
+    <div class="card mb-3">
+      <div class="card-header bg-light">
+        <strong>📖 Описание</strong>
+      </div>
+      <div class="card-body">
+        {{ clean_md(book.description)|safe }}
+      </div>
     </div>
   </div>
 </div>
 
 <hr>
 
-<h3>📝 Рецензии</h3>
-<div class="row mt-3">
+<div class="row mt-4">
   <div class="col-md-8">
+    <h3>📝 Рецензии</h3>
+    
     {% for review in book.reviews %}
       <div class="card mb-3">
         <div class="card-body">
-          <div class="d-flex justify-content-between">
-            <strong>{{ review.user.full_name() }}</strong>
-            <span>
-              {% for i in range(review.rating) %}⭐{% endfor %}
-              {% for i in range(5 - review.rating) %}☆{% endfor %}
-              ({{ review.rating }}/5)
-            </span>
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <strong>{{ review.user.full_name() }}</strong>
+              <span class="ms-2">
+                {% for i in range(review.rating) %}⭐{% endfor %}
+                {% for i in range(5 - review.rating) %}☆{% endfor %}
+                ({{ review.rating }}/5)
+              </span>
+            </div>
+            <div class="text-end">
+              <small class="text-muted">{{ review.created_at.strftime('%d.%m.%Y %H:%M') }}</small>
+              {% if current_user.is_authenticated and current_user.role.name in ['Администратор', 'Модератор'] %}
+                <form method="post" action="{{ url_for('admin_delete_review', review_id=review.id) }}" 
+                      style="display: inline;" 
+                      onsubmit="return confirm('🗑️ Удалить рецензию пользователя {{ review.user.full_name() }}? Это действие нельзя отменить.')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-danger ms-2" title="Удалить рецензию">
+                    🗑️
+                  </button>
+                </form>
+              {% endif %}
+            </div>
           </div>
-          <small class="text-muted">{{ review.created_at.strftime('%d.%m.%Y %H:%M') }}</small>
           <div class="mt-2">
             {{ clean_md(review.text)|safe }}
           </div>
         </div>
       </div>
     {% else %}
-      <div class="alert alert-secondary">Пока нет рецензий на эту книгу. Будьте первым!</div>
+      <div class="alert alert-secondary">
+        📭 Пока нет рецензий на эту книгу. Будьте первым!
+      </div>
     {% endfor %}
   </div>
   
   <div class="col-md-4">
-    {% if current_user.is_authenticated and current_user.role.name in ['Пользователь','Модератор','Администратор'] %}
+    {% if current_user.is_authenticated and current_user.role.name in ['Пользователь', 'Модератор', 'Администратор'] %}
       {% if user_review %}
         <div class="alert alert-success">
-          <h5>Ваша рецензия</h5>
-          <p>Вы уже оставили рецензию на эту книгу. Спасибо за ваш отзыв!</p>
+          <h5>✅ Ваша рецензия</h5>
+          <p>Вы уже оставили рецензию на эту книгу.</p>
+          <small class="text-muted">Спасибо за ваш отзыв!</small>
         </div>
       {% else %}
         <div class="card">
           <div class="card-body">
-            <h5>Оставить рецензию</h5>
-            <a class="btn btn-primary" href="{{ url_for('review_add', book_id=book.id) }}">✍️ Написать рецензию</a>
+            <h5 class="card-title">✍️ Написать рецензию</h5>
+            <p class="card-text">Поделитесь своим мнением о книге.</p>
+            <a class="btn btn-primary w-100" href="{{ url_for('review_add', book_id=book.id) }}">
+              Написать рецензию
+            </a>
           </div>
         </div>
       {% endif %}
     {% elif not current_user.is_authenticated %}
       <div class="alert alert-info">
-        <a href="{{ url_for('login') }}">Войдите</a> в систему, чтобы оставить рецензию.
+        <a href="{{ url_for('login') }}" class="alert-link">Войдите</a> в систему, чтобы оставить рецензию.
       </div>
     {% endif %}
   </div>
 </div>
 
-<div class="mt-3">
+<div class="mt-4">
   <a href="{{ url_for('index') }}" class="btn btn-secondary">← Назад к списку</a>
   
-  {% if current_user.is_authenticated and current_user.role.name in ['Администратор','Модератор'] %}
-    <a class="btn btn-outline-primary" href="{{ url_for('book_edit', book_id=book.id) }}">✏️ Редактировать</a>
+  {% if current_user.is_authenticated and current_user.role.name in ['Администратор', 'Модератор'] %}
+    <a class="btn btn-outline-primary" href="{{ url_for('book_edit', book_id=book.id) }}">✏️ Редактировать книгу</a>
   {% endif %}
   
   {% if current_user.is_authenticated and current_user.role.name == 'Администратор' %}
     <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
-      🗑️ Удалить
+      🗑️ Удалить книгу
     </button>
   {% endif %}
 </div>
 
-<!-- Модальное окно для удаления -->
+<!-- Модальное окно для удаления книги -->
 {% if current_user.is_authenticated and current_user.role.name == 'Администратор' %}
 <div class="modal fade" id="deleteModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Удаление книги</h5>
+        <h5 class="modal-title">⚠️ Удаление книги</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
@@ -111,8 +153,8 @@
         <p class="text-danger">Это действие нельзя отменить. Все рецензии и обложка будут удалены.</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Нет</button>
-        <form method="post" action="{{ url_for('book_delete', book_id=book.id) }}" class="d-inline">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+        <form method="post" action="{{ url_for('book_delete', book_id=book.id) }}" style="display: inline;">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-danger">Да, удалить</button>
         </form>

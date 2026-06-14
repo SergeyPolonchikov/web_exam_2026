@@ -651,6 +651,48 @@ def admin_delete_user(user_id):
     flash(f"✅ Пользователь {user_full_name} (логин: {user_login}) удалён", "success")
     return redirect(url_for("admin_users"))
 
+@app.route("/admin/reviews")
+@role_required("Администратор", "Модератор")
+def admin_reviews():
+    """Страница управления рецензиями"""
+    reviews = Review.query.order_by(Review.created_at.desc()).all()
+    return render_template("admin_reviews.html", reviews=reviews)
+
+
+@app.route("/admin/review/<int:review_id>/delete", methods=["POST"])
+@role_required("Администратор", "Модератор")
+def admin_delete_review(review_id):
+    """Удаление рецензии (для модератора и админа)"""
+    review = Review.query.get_or_404(review_id)
+    book_title = review.book.title
+    user_name = review.user.full_name()
+    
+    db.session.delete(review)
+    db.session.commit()
+    
+    flash(f"Рецензия пользователя {user_name} на книгу «{book_title}» удалена", "success")
+    return redirect(request.referrer or url_for("admin_reviews"))
+
+
+@app.route("/admin/review/<int:review_id>/edit", methods=["GET", "POST"])
+@role_required("Администратор", "Модератор")
+def admin_edit_review(review_id):
+    """Редактирование рецензии (для модератора и админа)"""
+    review = Review.query.get_or_404(review_id)
+    
+    if request.method == "POST":
+        try:
+            review.rating = int(request.form["rating"])
+            review.text = bleach.clean(request.form["text"])
+            db.session.commit()
+            flash("Рецензия успешно отредактирована", "success")
+            return redirect(url_for("admin_reviews"))
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Ошибка при редактировании: {str(e)}", "danger")
+    
+    return render_template("admin_edit_review.html", review=review)
+
 with app.app_context():
     db.create_all()
     
