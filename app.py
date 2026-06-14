@@ -440,6 +440,27 @@ def review_add(book_id):
 
     return render_template("review_form.html", book=book)
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        login_value = request.form.get("login")
+        password_value = request.form.get("password")
+        
+        user = User.query.filter_by(login=login_value).first()
+        
+        if user and user.check_password(password_value):
+            login_user(user, remember=bool(request.form.get("remember")))
+            flash(f"Добро пожаловать, {user.full_name()}!", "success")
+            
+            # Перенаправляем на страницу, откуда пришли, или на главную
+            next_page = request.args.get("next")
+            if next_page:
+                return redirect(next_page)
+            return redirect(url_for("index"))
+        
+        flash("Невозможно аутентифицироваться с указанными логином и паролем", "danger")
+    
+    return render_template("login.html")
 
 with app.app_context():
     db.create_all()
